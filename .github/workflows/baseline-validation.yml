@@ -1,0 +1,35 @@
+name: Baseline import diagnostics
+on:
+  push:
+    branches: [validation/import-baseline]
+permissions:
+  contents: read
+jobs:
+  baseline:
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ['1.12.17', '1.25.5']
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: ${{ matrix.go }}
+          cache: false
+      - name: Restore original production code
+        shell: bash
+        run: |
+          git show 2566386005f64f58f34e1ff32907800a64537e6a:diskv.go > diskv.go
+          git diff --stat
+      - name: Reproduce original Windows failures
+        shell: bash
+        run: |
+          set +e
+          go test -count=1 -race -v -run 'TestImportCompression|TestImportCopyCompressedSameFile|TestImportMove$' ./...
+          result=$?
+          echo "Original source test exit: $result (failure expected)"
+          test "$result" -ne 0
