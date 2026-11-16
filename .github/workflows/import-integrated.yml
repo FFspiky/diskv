@@ -1,0 +1,33 @@
+name: Compressed import with reader cleanup validation
+on:
+  push:
+    branches: [validation/import-with-reader]
+permissions:
+  contents: read
+jobs:
+  import-with-reader:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        go: ['1.12.17', '1.25.5']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: ${{ matrix.go }}
+          cache: false
+      - name: Toolchain
+        run: go version
+      - name: Reader and compressed import regressions
+        run: go test -count=1 -race -v -run 'TestReadStream|TestClosingReader|TestBasicStreamCaching|^TestImportCompression$|^TestImportMoveCompressionFailureKeepsSource$|^TestImportMoveCompressedSameFile$' ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Build
+        run: go build ./...
+      - name: Full Linux suite
+        if: runner.os == 'Linux'
+        run: go test -count=1 -race ./...
